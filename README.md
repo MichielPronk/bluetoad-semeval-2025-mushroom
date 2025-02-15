@@ -29,3 +29,5 @@ A model can be loaded an evaluated with the compute_metrics.py script:
 ```
 python3 compute_metrics.py model_name evaluation_file_path predictions_output_file_path
 ```
+
+Our best submitted model can be found here https://huggingface.co/MichielPronk/xlm-roberta-mushroom-qa
