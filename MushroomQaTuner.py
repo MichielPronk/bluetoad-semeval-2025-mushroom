@@ -11,7 +11,7 @@ from transformers import Trainer, TrainingArguments
 import collections
 from tqdm.auto import tqdm
 
-logging.basicConfig(filename='results.log', level=logging.INFO,
+logging.basicConfig(filename='model_training_runs.log', level=logging.INFO,
                     format='%(asctime)s - %(message)s')
 
 class MushroomQaTuner:
@@ -84,20 +84,38 @@ class MushroomQaTuner:
 
         trainer.save_model(output_dir)
 
-        predictions, _, _ = trainer.predict(validation_dataset)
+        predictions, _, _ = trainer.predict(test_dataset)
         start_logits, end_logits = predictions
-        self.compute_metrics(args, start_logits, end_logits, validation_dataset, mushroom_val)
+        self.compute_metrics(args, start_logits, end_logits, test_dataset, mushroom_test)
 
         all_args = " \\\n".join([f" --{key}={value}" for key, value in vars(args).items() if value])
         self.log_and_print(f"Used settings:\n{all_args}", False)
 
     def log_and_print(self, message, printed=True):
-        """Logs a message and prints it to the console."""
+        """
+        Logs a message and prints it to the console.
+
+        Parameters:
+            message (str): The message to log and print
+            printed (bool): Whether to print the message
+
+        Returns:
+            None
+        """
         logging.info(message)
         if printed:
             print(message)
 
     def add_answers_column(self, example):
+        """
+        Add the answers column to an example.
+
+        Parameters:
+            example (dict): An instance from validation or test data
+
+        Returns:
+            example (dict): The instance with the answers column added
+        """
         starts, texts = [], []
         for hard_label in example["hard_labels"]:
             starts.append(hard_label[0])
@@ -105,13 +123,16 @@ class MushroomQaTuner:
         example["answers"] = {"answer_start": starts, "text": texts}
         return example
 
-    def has_answer_start(self, example):
-        """Checks if an example has a valid answer_start."""
-        return len(example["answers"]["answer_start"]) > 0 and example["answers"]["answer_start"][0] != -1
-
-    def annotate_and_save(self, file_path):
+    def transform_and_save(self, file_path):
         """
-        Read a single dataset, annotate it, and save the results.
+        Transform the training data so each hard label is a separate example.
+
+        Parameters:
+            file_path (str): The path to the file.
+
+        Returns:
+            new_file_path (str): The path to the new file.
+
         """
         with open(file_path, 'r') as file:
             data = [json.loads(line) for line in file]
@@ -139,8 +160,18 @@ class MushroomQaTuner:
         return new_file_path
 
     def to_dataset(self, file_path, train=True):
+        """
+        Load the dataset from a file and preprocess it.
+
+        Parameters:
+            file_path (str): The path to the file.
+            train (bool): Whether the dataset is a training set.
+
+        Returns:
+            mushroom (Dataset): The preprocessed dataset.
+        """
         if train:
-            file_path = self.annotate_and_save(file_path)
+            file_path = self.transform_and_save(file_path)
         mushroom = load_dataset("json", data_files=file_path)["train"]
         mushroom = mushroom.rename_column("model_output_text", "context")
         mushroom = mushroom.rename_column("model_input", "question")
@@ -151,6 +182,15 @@ class MushroomQaTuner:
         return mushroom
 
     def preprocess_training_examples(self, examples):
+        """
+        Preprocess the training data.
+
+        Parameters:
+            examples (Dataset): The training examples.
+
+        Returns:
+            inputs (BatchEncoding): The preprocessed training data.
+        """
         questions = [q.strip() for q in examples["question"]]
         inputs = self.tokenizer(
             questions,
@@ -206,6 +246,15 @@ class MushroomQaTuner:
         return inputs
 
     def preprocess_validation_examples(self, examples):
+        """
+        Preprocess the validation data.
+
+        Parameters:
+            examples (Dataset): The validation examples.
+
+        Returns:
+            inputs (BatchEncoding): The preprocessed validation data.
+        """
         questions = [q.strip() for q in examples["question"]]
         inputs = self.tokenizer(
             questions,
@@ -235,12 +284,16 @@ class MushroomQaTuner:
         return inputs
 
     def score_iou(self, ref_dict, pred_dict):
-        """computes intersection-over-union between reference and predicted hard labels, for a single datapoint.
-        inputs:
-        - ref_dict: a gold reference datapoint,
-        - pred_dict: a model's prediction
-        returns:
-        the IoU, or 1.0 if neither the reference nor the prediction contain hallucinations
+        """
+        Computes intersection-over-union between reference and predicted hard
+        labels, for a single datapoint.
+
+        Arguments:
+            ref_dict (dict): a gold reference datapoint,
+            pred_dict (dict): a model's prediction
+
+        Returns:
+            int: The IoU, or 1.0 if neither the reference nor the prediction contain hallucinations
         """
         # ensure the prediction is correctly matched to its reference
         assert ref_dict['id'] == pred_dict['id']
@@ -253,6 +306,18 @@ class MushroomQaTuner:
         return len(ref_indices & pred_indices) / len(ref_indices | pred_indices)
 
     def find_possible_spans(self, answers, example):
+        """
+        Creates and filters possible hallucination spans.
+
+        Arguments:
+            answers (list): List containing dictionaries with spans as text and
+                            logit scores.
+            example: The instance which is being predicted. The context is used to map the predicted text to the start
+                     and end indexes of the target context.
+
+        Returns:
+            list: List with lists of hard labels.
+        """
         best_answer = max(answers, key=lambda x: x["logit_score"])
         threshold = best_answer["logit_score"] * 0.8
         hard_labels = []
@@ -264,6 +329,20 @@ class MushroomQaTuner:
         return hard_labels
 
     def compute_metrics(self, args, start_logits, end_logits, features, examples):
+        """
+        Function to process predictions, create spans and if possible,
+        calculates IoU
+
+        Arguments:
+            args (ArgumentParser): Arguments supplied by user.
+            start_logits (list): Logits of all start positions.
+            end_logits (list): Logits of all end positions.
+            features (Dataset): Dataset containing features of questions and context.
+            examples (Dataset): Dataset containing examples with hard labels.
+
+        Returns:
+            None
+        """
         example_to_features = collections.defaultdict(list)
         for idx, feature in enumerate(features):
             example_to_features[feature["example_id"]].append(idx)
@@ -312,22 +391,30 @@ class MushroomQaTuner:
         with jsonlines.open(f'/data/{args.predictions_filename}.jsonl', mode='w') as writer:
             writer.write_all(predicted_answers)
 
-        true_answers = [{"id": ex["id"], "hard_labels": ex["hard_labels"]} for ex in examples]
-        ious = np.array([self.score_iou(r, d) for r, d in zip(true_answers, predicted_answers)])
+        if "answers" in examples.column_names:
+            true_answers = [{"id": ex["id"], "hard_labels": ex["hard_labels"]} for ex in examples]
+            ious = np.array([self.score_iou(r, d) for r, d in zip(true_answers, predicted_answers)])
 
-        self.log_and_print(f"IOU: {ious.mean():.8f}")
-        return {"iou": ious.mean()}
+            self.log_and_print(f"IOU: {ious.mean():.8f}")
+        else:
+            self.log_and_print("Evaluation data contained no answers. No scores to show.")
 
 
 
 def create_arg_parser():
+    """
+    Create an argument parser for the MushroomQaTuner class.
+
+    Returns:
+        args (Namespace): The arguments passed in from the command line.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--train_file", default="/data/train/mushroom.en-train_LABELED.v1.jsonl",
                         type=str,
                         help="Input file to learn from")
     parser.add_argument("-d", "--val_file", type=str, default="/data/val/mushroom.en-val.v1.jsonl",
                         help="Separate dev set to read in")
-    parser.add_argument("-t", "--test_file", type=str, default="data/val/mushroom.en-val.v1.jsonl",
+    parser.add_argument("-t", "--test_file", type=str, default="data/test_labeled/mushroom.en-val.v1.jsonl",
                         help="If added, use trained model to predict on test set")
     parser.add_argument("-m", "--model_name", type=str, default="FacebookAI/roberta-base",
                         help="Model to use")
