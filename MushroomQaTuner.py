@@ -1,21 +1,34 @@
 import argparse
+import collections
 import json
-import jsonlines
 import logging
 import os
 
-from datasets import load_dataset
-from transformers import AutoTokenizer, DefaultDataCollator, AutoModelForQuestionAnswering
+import jsonlines
 import numpy as np
-from transformers import Trainer, TrainingArguments
-import collections
+from datasets import load_dataset
 from tqdm.auto import tqdm
+from transformers import (
+    AutoModelForQuestionAnswering,
+    AutoTokenizer,
+    DefaultDataCollator,
+    Trainer,
+    TrainingArguments,
+)
+
 
 logging.basicConfig(filename='model_training_runs.log', level=logging.INFO,
                     format='%(asctime)s - %(message)s')
 
 class MushroomQaTuner:
     def __init__(self, args):
+        """
+        Initializes the MushroomQaTuner class, format data, run Trainer and
+        predict.
+
+        Parameters:
+             args (Namespace): Arguments passed in from the command line.
+        """
         self.tokenizer = AutoTokenizer.from_pretrained(args.model_name)
         self.model = AutoModelForQuestionAnswering.from_pretrained(args.model_name)
         self.data_collator = DefaultDataCollator()
