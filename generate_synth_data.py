@@ -232,5 +232,6 @@ def main():
 
         write_json(data, args)
 
+
 if __name__ == "__main__":
     main()
