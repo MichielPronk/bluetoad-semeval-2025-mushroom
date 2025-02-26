@@ -422,12 +422,12 @@ def create_arg_parser():
         args (Namespace): The arguments passed in from the command line.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--train_file", default="/data/train/mushroom.en-train_LABELED.v1.jsonl",
+    parser.add_argument("-i", "--train_file", default="./data/train_synthetic/mushroom.en-train_LABELED.v1.jsonl",
                         type=str,
                         help="Input file to learn from")
-    parser.add_argument("-d", "--val_file", type=str, default="/data/val/mushroom.en-val.v1.jsonl",
+    parser.add_argument("-d", "--val_file", type=str, default="./data/val/mushroom.en-val.v2.jsonl",
                         help="Separate dev set to read in")
-    parser.add_argument("-t", "--test_file", type=str, default="data/test_labeled/mushroom.en-val.v1.jsonl",
+    parser.add_argument("-t", "--test_file", type=str, default="./data/test_labeled/mushroom.en-val.v1.jsonl",
                         help="If added, use trained model to predict on test set")
     parser.add_argument("-m", "--model_name", type=str, default="FacebookAI/roberta-base",
                         help="Model to use")
