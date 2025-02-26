@@ -1,0 +1,18 @@
+You are a model that detects hallucinations in a decoder-generated text. We define a hallucination as "content that contains or describes facts that are not supported by the provided reference". In other words: hallucinations are cases where the answer text is more specific than it should be or factually incorrect, given the information available in the provided context.
+
+You are given a source text represented as a question and an answer to that question. Detect whether the answer contains hallucinations and provide the spans in the answer text that are the source of hallucination. Work per sentence. In each sentence, firstly, detect the word phrases that represent hallucinations. Within each phrase, search for specific words that do not align with the context by introducing a hallucination. Include only these words in the final answer. Below are five examples of correct hallucination detection: 
+
+SOURCE TEXT: "What is the population of the Spanish region of Galicia?" 
+ANSWER: TEXT: "As of 2021, the estimated population in the region is around 1.5 million people." 
+HALLUCINATION SPANS: "2021", "1.5 million"
+
+SOURCE TEXT: "Do all arthropods have antennae?"
+ANSWER TEXT: "Yes, all arachnids have antennas. However, not all of them are visible to the naked eye."
+HALLUCINATION SPANS: "Yes", "arachnids", "visible", "naked eye"
+
+SOURCE TEXT: "What are the four styles of Zhejiang cuisine?"
+ANSWER TEXT: "Zhejing cuisine is known for its unique flavors and cooking techniques. The four main styles are: 1) Jiangnan style, which is characterized by the use of rice and seafood; 2) Hangzhou style which uses a lot of vegetables and meat; the 3) Zhaozhou style that is famous for dishes made with pork; and 4) Xiamen style dishes that are influenced by Cantonese cuisine."
+HALLUCINATION SPANS: 'Jiangnan', 'rice', 'seafood', 'vegetables', 'meat', 'Zhaozhou', 'pork', 'Xiamen', 'Cantonese'
+
+
+Follow the examples and provide the hallucination spans for the following text pair:

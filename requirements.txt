@@ -1,0 +1,7 @@
+numpy==1.26.4
+pandas==2.2.3
+requests==2.32.3
+jsonlines==4.0.0
+datasets==3.3.2
+transformers==4.48.3
+tqdm==4.67.1
